@@ -36,8 +36,13 @@ See the LICENSE file for more details.
 class AllSensors_DLV {
 public:
 
+  // The default I2C address from the datasheet.
   static const uint8_t I2C_ADDRESS = 0x28;
   
+  // The sensor type, where part numbers:
+  //   * DLV-xxxG-* are GAGE sensors.
+  //   * DLV-xxxD-* are DIFFERENTIAL sensors.
+  //   * DLV-xxxA-* are ABSOLUTE sensors.
   enum SensorType {
     GAGE         = 'G',
     DIFFERENTIAL = 'D',
@@ -84,23 +89,32 @@ private:
   PressureUnit pressure_unit;
   TemperatureUnit temperature_unit;
 
+  // Extract the 2-bit status field, bits 0-1.
   Status extractStatus() {
     return (Status)((raw_data[0] & 0b11000000) >> 6);
   }
 
+  // Extract the 14-bit pressure field, bits 2-16.
   uint16_t extractIntegerPressure() {
     return ((uint16_t)(raw_data[0] & 0b00111111) << 8) | (uint16_t)(raw_data[1]);
   }
   
+  // Extract the 11-bit temperature field, bits 17-28.
   uint16_t extractIntegerTemperature() {
     return ((uint16_t)(raw_data[2]) << 3) | ((uint16_t)(raw_data[3] & 0b11100000) >> 5);
   }
   
+  // Convert a raw digital pressure read from the sensor to a floating point value in PSI.
   float transferPressure(unsigned long raw_value) {
+    // Based on the following formula in the datasheet:
+    //     Pressure(psi) = 1.25 x ((P_out_dig - OS_dig) / 2^14) x FSS(psi)
     return 1.25 * (((float)raw_value - pressure_zero_ref) / FULL_SCALE_REF) * pressure_range;
   }
   
+  // Convert a raw digital temperature read from the sensor to a floating point value in Celcius.
   float transferTemperature(unsigned long raw_value) {
+    // Based on the following formula in the datasheet:
+    //     Temperature(degC) = T_out_dig x (200 / 2^11 - 1) - 50
     return (float)raw_value * (200.0 / 2047.0) - 50.0;
   }
 
